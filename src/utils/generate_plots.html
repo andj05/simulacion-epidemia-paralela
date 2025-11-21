@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gráficas del Proyecto - Simulación SIR</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 30px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .chart-container {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    
+    canvas {
+      max-height: 400px;
+    }
+    
+    .instructions {
+      background: rgba(255,255,255,0.9);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+      color: #333;
+    }
+    
+    .instructions h3 {
+      margin-top: 0;
+      color: #667eea;
+    }
+    
+    .instructions ol {
+      margin: 10px 0;
+      padding-left: 25px;
+    }
+    
+    .instructions li {
+      margin: 8px 0;
+    }
+    
+    .button-container {
+      text-align: center;
+      margin: 20px 0;
+    }
+    
+    button {
+      background: white;
+      color: #667eea;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 25px;
+      cursor: pointer;
+      margin: 0 10px;
+      transition: all 0.3s;
+      font-weight: bold;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    
+    #fileInput {
+      display: none;
+    }
+    
+    .error {
+      color: #f44336;
+      background: rgba(244, 67, 54, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+      display: none;
+    }
+    
+    .success {
+      color: #4caf50;
+      background: rgba(76, 175, 80, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Gráficas del Proyecto - Simulación SIR Paralela</h1>
+    
+    <div class="instructions">
+      <h3>📝 Instrucciones para generar y descargar gráficas:</h3>
+      <ol>
+        <li><strong>Cargar tiempos_scaling.csv:</strong> Clic en "📁 Cargar tiempos_scaling.csv" → genera 3 gráficas de desempeño</li>
+        <li><strong>Cargar resultados_secuencial.csv:</strong> Clic en "📁 Cargar resultados_secuencial.csv" → genera gráfica de evolución secuencial</li>
+        <li><strong>Cargar resultados_paralelo.csv:</strong> Clic en "📁 Cargar resultados_paralelo.csv" → genera gráfica de evolución paralela</li>
+        <li><strong>BONUS:</strong> Si cargas ambos archivos de resultados, se genera automáticamente una gráfica comparativa</li>
+        <li><strong>Descargar:</strong> Haz clic en "⬇️ Descargar" debajo de cada gráfica para guardarla como JPG</li>
+        <li>Mueve los archivos descargados a <code>resultados/graficas/</code></li>
+      </ol>
+      <p><strong>Gráficas generadas:</strong></p>
+      <ul>
+        <li>speedup.jpg - Comparación de aceleración</li>
+        <li>eficiencia.jpg - Eficiencia paralela</li>
+        <li>tiempos.jpg - Tiempos de ejecución</li>
+        <li>evolucion_secuencial.jpg - Evolución epidemia (secuencial)</li>
+        <li>evolucion_paralela.jpg - Evolución epidemia (paralela)</li>
+        <li>comparacion_infectados.jpg - Comparación directa (bonus)</li>
+      </ul>
+    </div>
+    
+    <div class="button-container">
+      <button onclick="document.getElementById('scalingInput').click()">
+        📁 Cargar tiempos_scaling.csv
+      </button>
+      <button onclick="document.getElementById('seqInput').click()">
+        📁 Cargar resultados_secuencial.csv
+      </button>
+      <button onclick="document.getElementById('parInput').click()">
+        📁 Cargar resultados_paralelo.csv
+      </button>
+      <input type="file" id="scalingInput" accept=".csv" onchange="loadScalingData(event)">
+      <input type="file" id="seqInput" accept=".csv" onchange="loadSeqData(event)">
+      <input type="file" id="parInput" accept=".csv" onchange="loadParData(event)">
+    </div>
+    
+    <div id="error" class="error"></div>
+    <div id="success" class="success"></div>
+    
+    <!-- GRÁFICA 1: Speed-up -->
+    <div class="chart-container" id="speedupContainer" style="display:none;">
+      <h2>Speed-up vs Número de Threads</h2>
+      <canvas id="speedupChart"></canvas>
+      <div class="button-container">
+        <button onclick="downloadChart('speedupChart', 'speedup.jpg')">⬇️ Descargar speedup.jpg</button>
+      </div>
+    </div>
+    
+    <!-- GRÁFICA 2: Eficiencia -->
+    <div class="chart-container" id="efficiencyContainer" style="display:none;">
+      <h2>Eficiencia Paralela</h2>
+      <canvas id="efficiencyChart"></canvas>
+      <div class="button-container">
+        <button onclick="downloadChart('efficiencyChart', 'eficiencia.jpg')">⬇️ Descargar eficiencia.jpg</button>
+      </div>
+    </div>
+    
+    <!-- GRÁFICA 3: Tiempos -->
+    <div class="chart-container" id="timesContainer" style="display:none;">
+      <h2>Comparación de Tiempos de Ejecución</h2>
+      <canvas id="timesChart"></canvas>
+      <div class="button-container">
+        <button onclick="downloadChart('timesChart', 'tiempos.jpg')">⬇️ Descargar tiempos.jpg</button>
+      </div>
+    </div>
+    
+    <!-- GRÁFICA 4: Evolución Epidemia Secuencial -->
+    <div class="chart-container" id="epidemicSeqContainer" style="display:none;">
+      <h2>Evolución de la Epidemia - Secuencial</h2>
+      <canvas id="epidemicSeqChart"></canvas>
+      <div class="button-container">
+        <button onclick="downloadChart('epidemicSeqChart', 'evolucion_secuencial.jpg')">⬇️ Descargar evolucion_secuencial.jpg</button>
+      </div>
+    </div>
+    
+    <!-- GRÁFICA 5: Evolución Epidemia Paralela -->
+    <div class="chart-container" id="epidemicParContainer" style="display:none;">
+      <h2>Evolución de la Epidemia - Paralela</h2>
+      <canvas id="epidemicParChart"></canvas>
+      <div class="button-container">
+        <button onclick="downloadChart('epidemicParChart', 'evolucion_paralela.jpg')">⬇️ Descargar evolucion_paralela.jpg</button>
+      </div>
+    </div>
+    
+    <!-- GRÁFICA 6: Comparación Secuencial vs Paralela -->
+    <div class="chart-container" id="comparisonContainer" style="display:none;">
+      <h2>Comparación: Infectados Secuencial vs Paralela</h2>
+      <canvas id="comparisonChart"></canvas>
+      <div class="button-container">
+        <button onclick="downloadChart('comparisonChart', 'comparacion_infectados.jpg')">⬇️ Descargar comparacion_infectados.jpg</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let scalingData = null;
+    let seqData = null;
+    let parData = null;
+    
+    function showError(message) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = '❌ ' + message;
+      errorDiv.style.display = 'block';
+      setTimeout(() => errorDiv.style.display = 'none', 5000);
+    }
+    
+    function showSuccess(message) {
+      const successDiv = document.getElementById('success');
+      successDiv.textContent = '✅ ' + message;
+      successDiv.style.display = 'block';
+      setTimeout(() => successDiv.style.display = 'none', 5000);
+    }
+    
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',');
+      const data = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header.trim()] = values[index]?.trim();
+        });
+        data.push(row);
+      }
+      
+      return data;
+    }
+    
+    function loadScalingData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          scalingData = parseCSV(e.target.result);
+          generateScalingCharts();
+          showSuccess('Datos de scaling cargados correctamente');
+        } catch (error) {
+          showError('Error al leer el archivo: ' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+    
+    function loadSeqData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          seqData = parseCSV(e.target.result);
+          generateSeqChart();
+          if (parData) generateComparisonChart();
+          showSuccess('Datos secuenciales cargados correctamente');
+        } catch (error) {
+          showError('Error al leer el archivo: ' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+    
+    function loadParData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          parData = parseCSV(e.target.result);
+          generateParChart();
+          if (seqData) generateComparisonChart();
+          showSuccess('Datos paralelos cargados correctamente');
+        } catch (error) {
+          showError('Error al leer el archivo: ' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+    
+    function generateScalingCharts() {
+      const parallelData = scalingData.filter(d => d.type === 'paralelo');
+      
+      // Gráfica 1: Speed-up
+      document.getElementById('speedupContainer').style.display = 'block';
+      const ctxSpeedup = document.getElementById('speedupChart').getContext('2d');
+      new Chart(ctxSpeedup, {
+        type: 'line',
+        data: {
+          labels: parallelData.map(d => `${d.threads} threads`),
+          datasets: [
+            {
+              label: 'Speed-up Real',
+              data: parallelData.map(d => parseFloat(d.speedup)),
+              borderColor: 'rgb(75, 192, 192)',
+              backgroundColor: 'rgba(75, 192, 192, 0.2)',
+              tension: 0.1,
+              borderWidth: 3,
+              pointRadius: 6
+            },
+            {
+              label: 'Speed-up Ideal (lineal)',
+              data: parallelData.map(d => parseFloat(d.threads)),
+              borderColor: 'rgb(255, 99, 132)',
+              backgroundColor: 'rgba(255, 99, 132, 0.2)',
+              borderDash: [5, 5],
+              tension: 0.1,
+              borderWidth: 3,
+              pointRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Strong Scaling - Speed-up vs Número de Threads',
+              font: { size: 18, weight: 'bold' }
+            },
+            legend: { display: true, position: 'top' }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Speed-up (x)', font: { size: 14 } }
+            },
+            x: {
+              title: { display: true, text: 'Configuración', font: { size: 14 } }
+            }
+          }
+        }
+      });
+      
+      // Gráfica 2: Eficiencia
+      document.getElementById('efficiencyContainer').style.display = 'block';
+      const ctxEfficiency = document.getElementById('efficiencyChart').getContext('2d');
+      new Chart(ctxEfficiency, {
+        type: 'bar',
+        data: {
+          labels: parallelData.map(d => `${d.threads} threads`),
+          datasets: [{
+            label: 'Eficiencia (%)',
+            data: parallelData.map(d => parseFloat(d.efficiency) * 100),
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.7)',
+              'rgba(54, 162, 235, 0.7)',
+              'rgba(255, 206, 86, 0.7)',
+              'rgba(75, 192, 192, 0.7)'
+            ],
+            borderColor: [
+              'rgba(255, 99, 132, 1)',
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 206, 86, 1)',
+              'rgba(75, 192, 192, 1)'
+            ],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Eficiencia Paralela',
+              font: { size: 18, weight: 'bold' }
+            },
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              title: { display: true, text: 'Eficiencia (%)', font: { size: 14 } }
+            }
+          }
+        }
+      });
+      
+      // Gráfica 3: Tiempos
+      document.getElementById('timesContainer').style.display = 'block';
+      const ctxTimes = document.getElementById('timesChart').getContext('2d');
+      new Chart(ctxTimes, {
+        type: 'bar',
+        data: {
+          labels: scalingData.map(d => `${d.threads} ${d.type}`),
+          datasets: [{
+            label: 'Tiempo de ejecución (segundos)',
+            data: scalingData.map(d => parseFloat(d.duration)),
+            backgroundColor: scalingData.map(d => 
+              d.type === 'secuencial' ? 'rgba(255, 99, 132, 0.7)' : 'rgba(75, 192, 192, 0.7)'
+            ),
+            borderColor: scalingData.map(d => 
+              d.type === 'secuencial' ? 'rgba(255, 99, 132, 1)' : 'rgba(75, 192, 192, 1)'
+            ),
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Comparación de Tiempos de Ejecución',
+              font: { size: 18, weight: 'bold' }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Tiempo (segundos)', font: { size: 14 } }
+            }
+          }
+        }
+      });
+    }
+    
+    function generateSeqChart() {
+      document.getElementById('epidemicSeqContainer').style.display = 'block';
+      const ctx = document.getElementById('epidemicSeqChart').getContext('2d');
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: seqData.map(d => d.day),
+          datasets: [
+            {
+              label: 'Susceptibles',
+              data: seqData.map(d => parseInt(d.susceptible)),
+              borderColor: 'rgb(76, 175, 80)',
+              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Infectados',
+              data: seqData.map(d => parseInt(d.infected)),
+              borderColor: 'rgb(244, 67, 54)',
+              backgroundColor: 'rgba(244, 67, 54, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Recuperados',
+              data: seqData.map(d => parseInt(d.recovered)),
+              borderColor: 'rgb(33, 150, 243)',
+              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Fallecidos',
+              data: seqData.map(d => parseInt(d.dead)),
+              borderColor: 'rgb(66, 66, 66)',
+              backgroundColor: 'rgba(66, 66, 66, 0.1)',
+              fill: true,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Evolución de la Epidemia - Simulación Secuencial',
+              font: { size: 18, weight: 'bold' }
+            },
+            legend: { display: true, position: 'top' }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Población', font: { size: 14 } }
+            },
+            x: {
+              title: { display: true, text: 'Día', font: { size: 14 } }
+            }
+          }
+        }
+      });
+    }
+    
+    function generateParChart() {
+      document.getElementById('epidemicParContainer').style.display = 'block';
+      const ctx = document.getElementById('epidemicParChart').getContext('2d');
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: parData.map(d => d.day),
+          datasets: [
+            {
+              label: 'Susceptibles',
+              data: parData.map(d => parseInt(d.susceptible)),
+              borderColor: 'rgb(76, 175, 80)',
+              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Infectados',
+              data: parData.map(d => parseInt(d.infected)),
+              borderColor: 'rgb(244, 67, 54)',
+              backgroundColor: 'rgba(244, 67, 54, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Recuperados',
+              data: parData.map(d => parseInt(d.recovered)),
+              borderColor: 'rgb(33, 150, 243)',
+              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Fallecidos',
+              data: parData.map(d => parseInt(d.dead)),
+              borderColor: 'rgb(66, 66, 66)',
+              backgroundColor: 'rgba(66, 66, 66, 0.1)',
+              fill: true,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Evolución de la Epidemia - Simulación Paralela',
+              font: { size: 18, weight: 'bold' }
+            },
+            legend: { display: true, position: 'top' }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Población', font: { size: 14 } }
+            },
+            x: {
+              title: { display: true, text: 'Día', font: { size: 14 } }
+            }
+          }
+        }
+      });
+    }
+    
+    function generateComparisonChart() {
+      document.getElementById('comparisonContainer').style.display = 'block';
+      const ctx = document.getElementById('comparisonChart').getContext('2d');
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: seqData.map(d => d.day),
+          datasets: [
+            {
+              label: 'Infectados (Secuencial)',
+              data: seqData.map(d => parseInt(d.infected)),
+              borderColor: 'rgb(255, 99, 132)',
+              backgroundColor: 'rgba(255, 99, 132, 0.1)',
+              fill: false,
+              tension: 0.3,
+              borderWidth: 3
+            },
+            {
+              label: 'Infectados (Paralela)',
+              data: parData.map(d => parseInt(d.infected)),
+              borderColor: 'rgb(54, 162, 235)',
+              backgroundColor: 'rgba(54, 162, 235, 0.1)',
+              fill: false,
+              tension: 0.3,
+              borderWidth: 3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Comparación de Infectados: Secuencial vs Paralela',
+              font: { size: 18, weight: 'bold' }
+            },
+            legend: { display: true, position: 'top' }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Número de Infectados', font: { size: 14 } }
+            },
+            x: {
+              title: { display: true, text: 'Día', font: { size: 14 } }
+            }
+          }
+        }
+      });
+    }
+    
+    // Función para descargar gráfica como JPG
+    function downloadChart(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      
+      // Crear un canvas temporal con fondo blanco
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      // Rellenar con fondo blanco
+      tempCtx.fillStyle = 'white';
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      
+      // Dibujar la gráfica encima
+      tempCtx.drawImage(canvas, 0, 0);
+      
+      // Convertir a JPG y descargar
+      tempCanvas.toBlob(function(blob) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        showSuccess('Gráfica descargada: ' + filename);
+      }, 'image/jpeg', 0.95); // 95% calidad JPG
+    }
+  </script>
+</body>
+</html>

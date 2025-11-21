@@ -1,0 +1,20 @@
+{
+  "name": "simulacion-epidemia-paralela",
+  "version": "1.0.0",
+  "description": "Simulación Monte-Carlo de epidemias SIR con paralelización",
+  "main": "src/secuencial/main.js",
+  "scripts": {
+  "setup": "node setup.js",
+  "secuencial": "npm run setup && node src/secuencial/main.js",
+  "paralelo": "npm run setup && node src/paralelo/main_parallel.js",
+  "scaling": "npm run setup && node src/paralelo/scaling_test.js",
+  "visualizar": "python src/utils/generate_plots.py"
+},
+  "keywords": ["epidemia", "SIR", "monte-carlo", "paralelismo", "simulación"],
+  "author": "Anddy Jara",
+  "license": "MIT",
+  "dependencies": {},
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

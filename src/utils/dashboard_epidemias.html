@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación Monte-Carlo | República Dominicana</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --sea-color: #001e3c; /* Azul Mar Profundo */
+            --card-bg: #1e293b;
+            --text-main: #e2e8f0;
+            --accent: #38bdf8;
+            
+            /* Colores de la Simulación */
+            --susceptible: #4ade80; /* Verde Brillante */
+            --infected: #f43f5e;    /* Rojo Neón */
+            --recovered: #3b82f6;   /* Azul */
+            --dead: #94a3b8;        /* Gris */
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            height: 95vh;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        /* --- BARRA LATERAL --- */
+        .sidebar {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+            overflow-y: auto;
+        }
+
+        h1 { font-size: 1.2rem; text-align: center; color: var(--accent); text-transform: uppercase; margin: 0 0 10px 0; }
+        h2 { font-size: 1rem; margin-bottom: 5px; border-bottom: 1px solid #334155; padding-bottom: 5px; }
+
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .btn-upload {
+            border: 1px dashed #475569;
+            color: #94a3b8;
+            background-color: transparent;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+        }
+        
+        .btn-upload:hover { border-color: var(--accent); color: var(--accent); }
+        input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+
+        .control-buttons { display: grid; gap: 10px; margin-top: 10px; }
+        
+        button.action-btn {
+            background: var(--accent);
+            color: #0f172a;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button.action-btn:active { transform: scale(0.98); }
+        button.action-btn:disabled { background: #475569; cursor: not-allowed; opacity: 0.6; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 1.1rem; font-weight: bold; display: block; }
+        .stat-label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; }
+
+        /* --- ÁREA PRINCIPAL --- */
+        .main-area {
+            display: grid;
+            grid-template-rows: 3fr 1.5fr;
+            gap: 20px;
+        }
+
+        .map-container {
+            background: var(--sea-color); /* AZUL MAR */
+            border-radius: 15px;
+            position: relative;
+            border: 2px solid #334155;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas#simCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
+            pointer-events: none;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .legend-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .chart-wrapper {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 15px;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="sidebar">
+        <h1>🦠 Simulación RD</h1>
+        
+        <div>
+            <h2>1. Cargar Datos</h2>
+            <div class="upload-btn-wrapper">
+                <button class="btn-upload">📂 Subir Secuencial (.csv)</button>
+                <input type="file" id="fileSeq" accept=".csv" onchange="updateFileName(this)">
+            </div>
+            <div class="upload-btn-wrapper">
+                <button class="btn-upload">📂 Subir Paralelo (.csv)</button>
+                <input type="file" id="filePar" accept=".csv" onchange="updateFileName(this)">
+            </div>
+            <div class="upload-btn-wrapper">
+                <button class="btn-upload">📂 Subir Scaling (.csv)</button>
+                <input type="file" id="fileScale" accept=".csv" onchange="updateFileName(this)">
+            </div>
+        </div>
+
+        <div>
+            <h2>2. Controles</h2>
+            <div class="control-buttons">
+                <button class="action-btn" id="btnLoad" onclick="processFiles()">📡 Procesar Datos</button>
+                <button class="action-btn" id="btnPlay" disabled onclick="toggleAnimation()">▶ Iniciar Simulación</button>
+                <button class="action-btn" id="btnReset" disabled onclick="resetSim()" style="background: #475569;">🔄 Reiniciar</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-val" id="dayVal">0</span>
+                <span class="stat-label">Día</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val" id="infectedVal" style="color: var(--infected)">0%</span>
+                <span class="stat-label">Infectados</span>
+            </div>
+            <div class="stat-item" style="grid-column: span 2;">
+                <span class="stat-val" id="popVal">1,000,000</span>
+                <span class="stat-label">Población</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-area">
+        <div class="map-container">
+            <div class="map-overlay">
+                <h3 style="margin:0; color:white;">República Dominicana</h3>
+                <small style="color:#94a3b8" id="simTypeLabel">Esperando datos...</small>
+            </div>
+            
+            <canvas id="simCanvas" width="800" height="500"></canvas>
+
+            <div class="legend">
+                <div class="legend-row"><div class="dot" style="background:var(--susceptible)"></div> Susceptible</div>
+                <div class="legend-row"><div class="dot" style="background:var(--infected); box-shadow: 0 0 8px var(--infected);"></div> Infectado</div>
+                <div class="legend-row"><div class="dot" style="background:var(--recovered)"></div> Recuperado</div>
+                <div class="legend-row"><div class="dot" style="background:var(--dead)"></div> Fallecido</div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-wrapper">
+                <canvas id="infectionChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="speedupChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // === CONFIGURACIÓN PRINCIPAL ===
+    // Aquí usamos el archivo que tienes en la raíz del proyecto
+    const MAP_FILE_PATH = './dominican-republic.svg'; 
+    const NUM_PARTICLES = 3500; // Cantidad de puntos a dibujar
+
+    // Variables Globales
+    let mapImage = new Image();
+    let mapLoaded = false;
+    let validCoordinates = []; // Coordenadas que son "tierra"
+    
+    // Canvas Context
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    // Datos de Simulación
+    let seqData = [], parData = [], scaleData = [];
+    let currentData = [];
+    let particles = [];
+    
+    // Animación
+    let isPlaying = false;
+    let currentDay = 0;
+    let animationId;
+
+    // === 1. INICIALIZACIÓN DEL MAPA ===
+    window.onload = () => {
+        loadMap();
+    };
+
+    function loadMap() {
+        mapImage.src = MAP_FILE_PATH;
+        
+        mapImage.onload = () => {
+            // 1. Dibujar mapa en canvas para analizarlo
+            drawMapBase();
+            
+            // 2. Analizar píxeles para detectar tierra vs mar
+            try {
+                analyzeMapBoundaries();
+                console.log(`Mapa analizado: ${validCoordinates.length} puntos de tierra detectados.`);
+                mapLoaded = true;
+                initParticles(); // Crear puntos iniciales
+            } catch (e) {
+                console.error("Error CORS al leer el mapa:", e);
+                alert("⚠️ IMPORTANTE: Para que el mapa funcione, debes abrir este archivo usando un Servidor Local (Live Server en VSCode), no con doble clic. Si no puedes, el mapa se verá pero los puntos no respetarán las fronteras.");
+                // Fallback: llenar el canvas aleatoriamente
+                validCoordinates = [];
+                for(let i=0; i<10000; i++) validCoordinates.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height});
+                mapLoaded = true;
+                initParticles();
+            }
+        };
+
+        mapImage.onerror = () => {
+            alert("❌ No se encuentra 'dominican-republic.svg' en la carpeta. Asegúrate de que el archivo esté al lado del HTML.");
+        };
+    }
+
+    function drawMapBase() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Ajustar tamaño para que quepa en el canvas ("contain")
+        const scale = Math.min(canvas.width / mapImage.width, canvas.height / mapImage.height) * 0.9;
+        const x = (canvas.width - mapImage.width * scale) / 2;
+        const y = (canvas.height - mapImage.height * scale) / 2;
+
+        // Dibujar el SVG
+        // Si el SVG es negro, se verá negro sobre el fondo azul del mar
+        ctx.drawImage(mapImage, x, y, mapImage.width * scale, mapImage.height * scale);
+        
+        return { x, y, w: mapImage.width * scale, h: mapImage.height * scale };
+    }
+
+    function analyzeMapBoundaries() {
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        // Obtener datos de píxeles
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+        
+        validCoordinates = [];
+
+        // Escanear cada 4 píxeles para mejorar rendimiento
+        for (let y = 0; y < height; y += 4) {
+            for (let x = 0; x < width; x += 4) {
+                const index = (y * width + x) * 4;
+                const alpha = data[index + 3]; // Canal Alpha
+                
+                // Si el pixel no es transparente, es tierra
+                // (El SVG debe tener fondo transparente y tierra rellena)
+                if (alpha > 20) {
+                    validCoordinates.push({x, y});
+                }
+            }
+        }
+    }
+
+    function initParticles() {
+        if (validCoordinates.length === 0) return;
+        
+        particles = [];
+        for (let i = 0; i < NUM_PARTICLES; i++) {
+            // Elegir una coordenada de tierra al azar
+            const coord = validCoordinates[Math.floor(Math.random() * validCoordinates.length)];
+            particles.push({
+                x: coord.x,
+                y: coord.y,
+                baseX: coord.x, // Para que orbiten alrededor de su zona
+                baseY: coord.y,
+                state: 's' // s=Susceptible
+            });
+        }
+        drawFrame();
+    }
+
+    // === 2. LÓGICA DE ARCHIVOS CSV ===
+    function updateFileName(input) {
+        const btn = input.previousElementSibling;
+        if(input.files[0]) btn.innerText = "✅ " + input.files[0].name;
+    }
+
+    function processFiles() {
+        const fSeq = document.getElementById('fileSeq').files[0];
+        const fPar = document.getElementById('filePar').files[0];
+        const fScale = document.getElementById('fileScale').files[0];
+
+        if(!fSeq && !fPar) { alert("Por favor sube al menos un archivo de resultados (Secuencial o Paralelo)."); return; }
+
+        const promises = [];
+        if(fSeq) promises.push(readFile(fSeq).then(d => seqData = parseCSV(d)));
+        if(fPar) promises.push(readFile(fPar).then(d => parData = parseCSV(d)));
+        if(fScale) promises.push(readFile(fScale).then(d => scaleData = parseScaleCSV(d)));
+
+        Promise.all(promises).then(() => {
+            // Priorizar datos paralelos si existen
+            currentData = parData.length > 0 ? parData : seqData;
+            document.getElementById('simTypeLabel').innerText = parData.length > 0 ? "Visualizando: Datos Paralelos" : "Visualizando: Datos Secuenciales";
+            
+            document.getElementById('btnPlay').disabled = false;
+            document.getElementById('btnReset').disabled = false;
+            
+            updateCharts();
+            alert("¡Datos cargados! Listo para iniciar.");
+        });
+    }
+
+    function readFile(file) {
+        return new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.readAsText(file);
+        });
+    }
+
+    function parseCSV(text) {
+        const lines = text.trim().split('\n');
+        const result = [];
+        // Saltar header
+        for(let i=1; i<lines.length; i++) {
+            const cols = lines[i].split(',');
+            if(cols.length >= 5) {
+                result.push({
+                    day: parseInt(cols[0]),
+                    s: parseInt(cols[1]),
+                    i: parseInt(cols[2]),
+                    r: parseInt(cols[3]),
+                    d: parseInt(cols[4])
+                });
+            }
+        }
+        return result;
+    }
+
+    function parseScaleCSV(text) {
+        const lines = text.trim().split('\n');
+        const result = [];
+        for(let i=1; i<lines.length; i++) {
+            const cols = lines[i].split(',');
+            if(cols.length >= 4) {
+                result.push({
+                    threads: parseInt(cols[0]),
+                    speedup: parseFloat(cols[3])
+                });
+            }
+        }
+        return result;
+    }
+
+    // === 3. ANIMACIÓN ===
+    function toggleAnimation() {
+        if (isPlaying) {
+            isPlaying = false;
+            cancelAnimationFrame(animationId);
+            document.getElementById('btnPlay').innerText = "▶ Reanudar";
+        } else {
+            if (currentDay >= currentData.length) currentDay = 0;
+            isPlaying = true;
+            document.getElementById('btnPlay').innerText = "⏸ Pausar";
+            animateLoop();
+        }
+    }
+
+    function resetSim() {
+        isPlaying = false;
+        cancelAnimationFrame(animationId);
+        currentDay = 0;
+        document.getElementById('btnPlay').innerText = "▶ Iniciar Simulación";
+        particles.forEach(p => p.state = 's');
+        drawFrame();
+        updateStatsDisplay(currentData[0]);
+    }
+
+    function animateLoop() {
+        if (!isPlaying) return;
+
+        if (currentDay < currentData.length) {
+            const dayData = currentData[currentDay];
+            updateStatsDisplay(dayData);
+            updateParticleColors(dayData);
+            drawFrame();
+            
+            currentDay++;
+            // Velocidad: 50ms por frame
+            setTimeout(() => {
+                animationId = requestAnimationFrame(animateLoop);
+            }, 50);
+        } else {
+            isPlaying = false;
+            document.getElementById('btnPlay').innerText = "▶ Reiniciar";
+            currentDay = 0;
+        }
+    }
+
+    function updateStatsDisplay(data) {
+        if(!data) return;
+        document.getElementById('dayVal').innerText = data.day;
+        const total = data.s + data.i + data.r + data.d;
+        const pct = ((data.i / total) * 100).toFixed(2);
+        document.getElementById('infectedVal').innerText = pct + "%";
+    }
+
+    function updateParticleColors(data) {
+        const total = data.s + data.i + data.r + data.d;
+        
+        // Calcular cuántas partículas de cada tipo necesitamos hoy
+        const targetS = Math.floor((data.s / total) * NUM_PARTICLES);
+        const targetI = Math.floor((data.i / total) * NUM_PARTICLES);
+        const targetR = Math.floor((data.r / total) * NUM_PARTICLES);
+        const targetD = Math.floor((data.d / total) * NUM_PARTICLES);
+
+        // Asignar estados en orden de gravedad (Muertos -> Recup -> Inf -> Sanos)
+        let idx = 0;
+        const setStates = (count, state) => {
+            for(let k=0; k<count && idx < particles.length; k++) {
+                particles[idx].state = state;
+                idx++;
+            }
+        };
+
+        setStates(targetD, 'd');
+        setStates(targetR, 'r');
+        setStates(targetI, 'i');
+        setStates(targetS, 's');
+        
+        // Truco visual: Mezclar un poco las posiciones (jitter) para que parezca vivo
+        if(Math.random() > 0.7) {
+            // Mezclamos ligeramente el array de partículas para que los colores se difundan
+            // Nota: Esto es solo efecto visual, no simulación espacial real
+            // particles.sort(() => Math.random() - 0.5); 
+        }
+    }
+
+    function drawFrame() {
+        // 1. Dibujar Mapa Base (Silhouette negra/gris sobre fondo azul mar)
+        drawMapBase();
+
+        // 2. Dibujar Partículas
+        particles.forEach(p => {
+            // Pequeño movimiento browniano (vibración)
+            p.x = p.baseX + (Math.random() - 0.5) * 3;
+            p.y = p.baseY + (Math.random() - 0.5) * 3;
+
+            ctx.beginPath();
+            // Usamos rectángulos pequeños (más rápido que arcos)
+            ctx.rect(p.x, p.y, 2.5, 2.5);
+            
+            switch(p.state) {
+                case 's': ctx.fillStyle = '#4ade80'; break; // Verde
+                case 'i': ctx.fillStyle = '#f43f5e'; break; // Rojo
+                case 'r': ctx.fillStyle = '#3b82f6'; break; // Azul
+                case 'd': ctx.fillStyle = '#94a3b8'; break; // Gris
+            }
+
+            // Efecto Glow solo para infectados
+            if(p.state === 'i') {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#f43f5e';
+            } else {
+                ctx.shadowBlur = 0;
+            }
+
+            ctx.fill();
+        });
+    }
+
+    // === 4. GRÁFICAS ===
+    let chartInfection, chartSpeedup;
+
+    function updateCharts() {
+        // Grafica Curvas
+        const ctxInf = document.getElementById('infectionChart').getContext('2d');
+        const labels = seqData.length > 0 ? seqData.map(d => d.day) : parData.map(d => d.day);
+        
+        const datasets = [];
+        if(seqData.length) datasets.push({
+            label: 'Secuencial (Infectados)',
+            data: seqData.map(d => d.i),
+            borderColor: '#fbbf24',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4
+        });
+        if(parData.length) datasets.push({
+            label: 'Paralelo (Infectados)',
+            data: parData.map(d => d.i),
+            borderColor: '#f43f5e',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4
+        });
+
+        if(chartInfection) chartInfection.destroy();
+        chartInfection = new Chart(ctxInf, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    title: { display: true, text: 'Curva Epidemiológica', color: 'white' },
+                    legend: { labels: { color: '#cbd5e1' } }
+                },
+                scales: {
+                    y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                    x: { display: false }
+                }
+            }
+        });
+
+        // Gráfica Speedup
+        if(scaleData.length) {
+            const ctxSpeed = document.getElementById('speedupChart').getContext('2d');
+            const labelsS = scaleData.map(d => `${d.threads} Hilos`);
+            const dataS = scaleData.map(d => d.speedup);
+
+            if(chartSpeedup) chartSpeedup.destroy();
+            chartSpeedup = new Chart(ctxSpeed, {
+                type: 'bar',
+                data: {
+                    labels: labelsS,
+                    datasets: [{
+                        label: 'Speedup (veces más rápido)',
+                        data: dataS,
+                        backgroundColor: '#38bdf8',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        title: { display: true, text: 'Rendimiento (Speedup)', color: 'white' },
+                        legend: { labels: { color: '#cbd5e1' } }
+                    },
+                    scales: {
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        x: { ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+    }
+</script>
+
+</body>
+</html>

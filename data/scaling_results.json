@@ -1,0 +1,37 @@
+[
+  {
+    "threads": 1,
+    "type": "secuencial",
+    "duration": 6.664,
+    "speedup": 1,
+    "efficiency": 1
+  },
+  {
+    "threads": 1,
+    "type": "paralelo",
+    "duration": 47.574,
+    "speedup": 0.14007651238071214,
+    "efficiency": 0.14007651238071214
+  },
+  {
+    "threads": 2,
+    "type": "paralelo",
+    "duration": 45.14,
+    "speedup": 0.14762959680992466,
+    "efficiency": 0.07381479840496233
+  },
+  {
+    "threads": 4,
+    "type": "paralelo",
+    "duration": 41.37,
+    "speedup": 0.161082910321489,
+    "efficiency": 0.04027072758037225
+  },
+  {
+    "threads": 8,
+    "type": "paralelo",
+    "duration": 43.488,
+    "speedup": 0.15323767476085356,
+    "efficiency": 0.019154709345106696
+  }
+]

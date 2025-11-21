@@ -1,0 +1,6 @@
+threads,type,duration,speedup,efficiency
+1,secuencial,6.6640,1.0000,1.0000
+1,paralelo,47.5740,0.1401,0.1401
+2,paralelo,45.1400,0.1476,0.0738
+4,paralelo,41.3700,0.1611,0.0403
+8,paralelo,43.4880,0.1532,0.0192

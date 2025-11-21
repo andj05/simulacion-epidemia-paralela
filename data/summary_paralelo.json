@@ -1,0 +1,25 @@
+{
+  "config": {
+    "size": 1000,
+    "days": 600,
+    "initialInfected": 50,
+    "beta": 0.18,
+    "gamma": 0.08,
+    "delta": 0.002,
+    "R0_radius": 1,
+    "numThreads": 4
+  },
+  "duration": 176.842,
+  "R0": 0,
+  "finalStats": {
+    "day": 505,
+    "susceptible": 48,
+    "infected": 0,
+    "recovered": 975669,
+    "dead": 24283,
+    "newInfections": 0,
+    "cumulativeInfections": 999902
+  },
+  "peakInfected": 83199,
+  "peakDay": 105
+}
