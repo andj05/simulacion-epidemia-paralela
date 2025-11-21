@@ -3,7 +3,6 @@ const os = require('os');
 const SIRModelParallel = require('./sir_model_parallel');
 
 // Configuración de la simulación
-// src/paralelo/main_parallel.js
 
 const config = {
   size: 1000,

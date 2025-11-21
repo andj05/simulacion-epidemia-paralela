@@ -1,7 +1,6 @@
 const fs = require('fs');
 const SIRModel = require('./sir_model');
 
-// Configuración de la simulación
 
 // Configuración "Endémica" (Tipo COVID-19 en RD)
 const config = {
